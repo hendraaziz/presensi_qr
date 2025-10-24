@@ -1,30 +1,31 @@
 <?php
 // Example configuration for presensi_wasbang
-// Copy this file to config.php and fill in your values
+// Copy this file to config.php or set via admin.php
 
-// Google Sheet URLs
-define('GOOGLE_SHEET_SESI_URL', 'https://docs.google.com/spreadsheets/d/.../export?format=csv');
-define('NIM_GSHEET_URL', 'https://docs.google.com/spreadsheets/d/.../export?format=csv');
+// App title & admin credentials (used by admin.php login)
+define('APP_TITLE', 'Presensi Wasbang');
+define('ADMIN_USERNAME', 'admin');
+define('ADMIN_PASSWORD', 'changeme');
+
+// Google Sheet URLs (CSV export)
+define('GOOGLE_SHEET_SESI_URL', 'https://docs.google.com/spreadsheets/d/.../export?format=csv&gid=741782867');
+define('NIM_GSHEET_URL', 'https://docs.google.com/spreadsheets/d/.../export?format=csv&gid=0');
 
 // n8n Webhook URL
-define('N8N_WEBHOOK_URL', 'https://your-n8n-instance.example.com/webhook/xxx');
+define('N8N_WEBHOOK_URL', 'https://your-n8n-instance.example.com/webhook/presensi-qr');
 
 // Secret key for hashing (fallback fingerprint)
 define('SECRET_KEY', 'change-this-secret');
 
-// Default country code (used for placeholder/display)
-// Keep for backward compatibility
+// Default country code (used for WhatsApp number validation)
 define('COUNTRY_CODE', '62');
 
-// Allowed WhatsApp country codes (comma-separated). Example: '62,61,60'
-// This supports multiple prefixes and will be used for validation.
-define('COUNTRY_CODES', '62,61,60');
+// Timezone
+date_default_timezone_set('Asia/Jakarta');
 
-// Helper: base URL detection compatible with PHP 5.6
+// Helper: base URL detection (PHP 5.x compatible)
 function base_url() {
   $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
   $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
-  $scriptName = isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '';
-  $dir = rtrim(str_replace('\\', '/', dirname($scriptName)), '/');
-  return $scheme . '://' . $host . ($dir ? $dir : '');
+  return $scheme . '://' . $host;
 }

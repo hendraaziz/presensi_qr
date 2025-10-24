@@ -107,7 +107,7 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Form Presensi</title>
+  <title><?php echo htmlspecialchars((defined('APP_TITLE') ? APP_TITLE : 'Presensi Wasbang') . ' - Form Presensi'); ?></title>
   <style>
     :root { color-scheme: light dark; }
     body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:#0f172a; color:#e5e7eb; }
@@ -129,7 +129,7 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
 <body>
   <div class="container">
     <div class="card">
-      <div class="title">Form Presensi</div>
+      <div class="title">Form <?php echo htmlspecialchars(defined('APP_TITLE') ? APP_TITLE : 'Presensi Wasbang'); ?></div>
       <?php if ($sessionActive): ?>
         <div class="subtitle">Sesi ID: <strong id="sessionIdText"><?php echo htmlspecialchars($sessionId); ?></strong></div>
       <?php else: ?>

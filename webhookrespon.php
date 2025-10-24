@@ -3,6 +3,9 @@
 // Endpoint untuk menerima balikan dari n8n dan menyediakan hasil untuk dibaca front-end
 // Mendukung POST (JSON/form) untuk menyimpan balikan dan GET untuk mengambilnya
 
+ob_start();
+error_reporting(0);
+ini_set('display_errors', '0');
 header('Content-Type: application/json; charset=utf-8');
 
 $method = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : 'GET';
@@ -13,21 +16,38 @@ if (!is_dir($storeDir)) {
 
 function readInputBody() {
   $raw = file_get_contents('php://input');
-$ctype = isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : '';
-
+  $ctype = isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : '';
   $data = [];
+
+  // Jika Content-Type JSON, coba decode
   if (stripos($ctype, 'application/json') !== false) {
     $json = json_decode($raw, true);
     if (is_array($json)) { $data = $json; }
-  } else {
-    // Fallback untuk x-www-form-urlencoded atau multipart
+  }
+
+  // Jika belum terisi dan body terlihat seperti JSON, coba decode
+  if (!$data && $raw) {
+    $trim = ltrim($raw);
+    if ($trim !== '' && ($trim[0] === '{' || $trim[0] === '[')) {
+      $json = json_decode($raw, true);
+      if (is_array($json)) { $data = $json; }
+    }
+  }
+
+  // Fallback: x-www-form-urlencoded atau multipart
+  if (!$data) {
     $data = $_POST ?: [];
     if (!$data && $raw) {
-      // coba parse url-encoded manual
       parse_str($raw, $parsed);
       if (is_array($parsed)) { $data = $parsed; }
     }
   }
+
+  // Jika data adalah array list (JSON array), ambil elemen pertama
+  if ($data && isset($data[0]) && is_array($data[0])) {
+    $data = $data[0];
+  }
+
   return $data;
 }
 
@@ -47,14 +67,25 @@ function storePath($dir, $key) {
 
 if (strtoupper($method) === 'POST') {
   $data = readInputBody();
-  $nim = isset($data['nim']) ? trim($data['nim']) : '';
-  $sessionId = isset($data['session_id']) ? trim($data['session_id']) : '';
-  $fingerprint = isset($data['device_fingerprint']) ? trim($data['device_fingerprint']) : '';
-  $message = isset($data['message']) ? trim($data['message']) : '';
-  $simulate = isset($data['simulate']) ? (string)$data['simulate'] : '';
 
+  // Normalisasi field dari variasi payload
+  $nimRaw = isset($data['nim']) ? $data['nim'] : '';
+  $sessionIdRaw = isset($data['session_id']) ? $data['session_id'] : '';
+  $fingerprintRaw = isset($data['device_fingerprint']) ? $data['device_fingerprint'] : '';
+  $nim = trim((string)$nimRaw);
+  $sessionId = trim((string)$sessionIdRaw);
+  $fingerprint = trim((string)$fingerprintRaw);
+
+  // Dukungan field 'status' (opsional) dan 'message' (wajib)
+  $message = '';
+  if (isset($data['message'])) {
+    $message = trim((string)$data['message']);
+  } elseif (isset($data['msg'])) {
+    $message = trim((string)$data['msg']);
+  }
+
+  $simulate = isset($data['simulate']) ? (string)$data['simulate'] : '';
   if ($simulate) {
-    // Jika simulasi diminta, gunakan pesan bawaan bila kosong
     if ($message === '') {
       $msgs = [
         'data presensi berhasil disimpan',
@@ -67,6 +98,7 @@ if (strtoupper($method) === 'POST') {
 
   if ($message === '') {
     http_response_code(400);
+    ob_clean();
     echo json_encode([ 'success' => false, 'message' => 'Parameter message wajib' ]);
     exit;
   }
@@ -83,6 +115,7 @@ if (strtoupper($method) === 'POST') {
   ];
   file_put_contents($path, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
+  ob_clean();
   echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
   exit;
 }
@@ -97,9 +130,11 @@ $path = storePath($storeDir, $key);
 if (is_file($path)) {
   $json = file_get_contents($path);
   if ($json) {
+    ob_clean();
     echo $json;
     exit;
   }
 }
 
+ob_clean();
 echo json_encode([ 'success' => false, 'message' => 'Belum ada balikan untuk key ini', 'key' => $key ]);

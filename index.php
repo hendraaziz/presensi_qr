@@ -146,7 +146,7 @@ if ($session) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Presensi Wasbang</title>
+  <title><?php echo htmlspecialchars(defined('APP_TITLE') ? APP_TITLE : 'Presensi Wasbang'); ?></title>
   <style>
     :root { color-scheme: light dark; }
     body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: #0f172a; color:#e5e7eb; }
@@ -163,13 +163,13 @@ if ($session) {
 <body>
   <div class="container">
     <div class="card">
-      <div class="title">Sistem Presensi Wasbang</div>
+      <div class="title">Sistem <?php echo htmlspecialchars(defined('APP_TITLE') ? APP_TITLE : 'Presensi Wasbang'); ?></div>
       <?php if ($session): ?>
         <div class="subtitle">Sesi: <strong><?php echo htmlspecialchars($session['name']); ?></strong></div>
         <div class="subtitle">Waktu: <?php echo $session['start'] ? $session['start']->format('d/m/Y H:i') : '—'; ?> s/d <?php echo $session['end'] ? $session['end']->format('d/m/Y H:i') : '—'; ?></div>
         <div class="qr-wrap">
           <?php if ($formUrl): ?>
-            <img alt="QR Presensi" src="https://quickchart.io/qr?text=<?php echo urlencode($formUrl); ?>&size=300&margin=10&format=png" />
+            <img alt="QR Presensi" src="https://quickchart.io/qr?text=<?php echo urlencode($formUrl); ?>&size=500&margin=10&format=png" />
           <?php endif; ?>
         </div>
         <!-- <div class="footer">

@@ -16,20 +16,34 @@ Aplikasi presensi sederhana berbasis PHP murni yang terintegrasi dengan n8n Webh
 - `index.php` — Menentukan sesi aktif dan menampilkan QR ke form.
 - `form.php` — Form presensi peserta + lookup Nama/PT + fingerprint.
 - `submit.php` — Proxy server-side yang meneruskan payload ke n8n Webhook sebagai JSON.
-- `config.php` — Pengaturan lingkungan (DI-ABA IKAN dari repo; gunakan `config.example.php`).
+- `admin.php` — Halaman admin untuk login dan mengubah konfigurasi aplikasi.
+- `config.php` — Pengaturan lingkungan (diabaikan dari repo; gunakan `config.example.php`).
 - `config.example.php` — Contoh konfigurasi yang perlu disalin ke `config.php`.
 
 ## Persiapan
-1. Salin dan sesuaikan `config.example.php` menjadi `config.php`.
-2. Isi nilai berikut sesuai lingkungan Anda:
-   - `GOOGLE_SHEET_SESI_URL` — URL CSV export Google Sheet untuk sesi aktif.
-   - `NIM_GSHEET_URL` — URL CSV export Google Sheet master NIM.
-   - `N8N_WEBHOOK_URL` — URL Webhook n8n untuk menerima data presensi.
-   - `SECRET_KEY` — string rahasia (dipakai untuk fingerprint fallback di server).
-   - `COUNTRY_CODE` — Kode negara nomor WA (contoh: `62`).
+Anda bisa memilih salah satu cara berikut:
+
+1) Pakai Admin Page
+- Buka `admin.php` lalu login.
+- Kredensial admin diambil dari `config.php`. Jika belum ada `config.php`, salin dari contoh atau gunakan nilai default di contoh (`admin`/`changeme`).
+- Ubah nilai konfigurasi (termasuk `APP_TITLE`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, URL Google Sheets, dsb.) lalu klik Simpan.
+
+2) Salin Manual dari Contoh
+- Salin dan sesuaikan `config.example.php` menjadi `config.php`.
+- Isi nilai berikut sesuai lingkungan Anda:
+  - `APP_TITLE` — Judul aplikasi yang tampil di halaman.
+  - `ADMIN_USERNAME`, `ADMIN_PASSWORD` — Kredensial admin untuk login di `admin.php`.
+  - `GOOGLE_SHEET_SESI_URL` — URL CSV export Google Sheet untuk sesi aktif.
+  - `NIM_GSHEET_URL` — URL CSV export Google Sheet master NIM.
+  - `N8N_WEBHOOK_URL` — URL Webhook n8n untuk menerima data presensi.
+  - `SECRET_KEY` — String rahasia (dipakai untuk fingerprint fallback di server).
+  - `COUNTRY_CODE` — Kode negara nomor WA (contoh: `62`).
 
 Contoh cepat (lihat `config.example.php`):
 ```php
+define('APP_TITLE', 'Presensi Wasbang');
+define('ADMIN_USERNAME', 'admin');
+define('ADMIN_PASSWORD', 'changeme');
 define('GOOGLE_SHEET_SESI_URL', 'https://docs.google.com/...&gid=741782867');
 define('NIM_GSHEET_URL', 'https://docs.google.com/...&gid=0');
 define('N8N_WEBHOOK_URL', 'https://flow.example.com/webhook/presensi-qr');
@@ -50,8 +64,13 @@ php -S localhost:8000
 ## Alur Pengiriman
 - Browser mengirim ke `submit.php` sebagai `x-www-form-urlencoded`.
 - `submit.php` memvalidasi input (khususnya `no_wa`) dan menambahkan metadata proxy: `proxy_received_at`, `proxy_ip`, `proxy_user_agent`, serta `secret_key`.
-- `submit.php` meneruskan payload ke `N8N_WEBHOOK_URL` sebagai JSON; jika Fingerprint kosong, dibuat fallback.
+- `submit.php` meneruskan payload ke `N8N_WEBHOOK_URL` sebagai JSON; jika fingerprint kosong, dibuat fallback.
 - Respon JSON dari proxy dipakai UI untuk menampilkan status.
+
+## Admin & Keamanan
+- Setelah instalasi, segera ganti `ADMIN_PASSWORD` dari nilai default.
+- Pertimbangkan membatasi akses `admin.php` (misal via IP allowlist) di hosting produksi.
+- Jika diperlukan, bisa diupgrade untuk memakai password hash; versi saat ini menggunakan perbandingan plain string sesuai kebutuhan sederhana.
 
 ## Catatan Produksi
 - Jika ingin mengirim JSON dari browser, pastikan `php.ini` menyetel `always_populate_raw_post_data = -1` dan nonaktifkan tampilan error `E_DEPRECATED` di produksi.
