@@ -383,16 +383,25 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
           submitBtn.disabled = false;
           return;
         }
-        // Simulasikan webhook dari n8n
-        await simulateWebhook(data.nim, data.session_id, data.device_fingerprint);
-        // Ambil hasil webhook
-        const result = await fetchWebhookResult(data.nim, data.session_id, data.device_fingerprint);
-        if (result && result.success) {
+        // Berhenti simulasi; lakukan polling balikan n8n yang asli
+        feedback.className = 'warn';
+        feedback.textContent = 'Data terkirim ke server. Menunggu respon...';
+
+        let finalResult = null;
+        const maxAttempts = 12; // ~18 detik dengan interval 1.5s
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          const r = await fetchWebhookResult(data.nim, data.session_id, data.device_fingerprint);
+          if (r && r.success) { finalResult = r; break; }
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+
+        submitBtn.disabled = false;
+        if (finalResult) {
           feedback.className = 'success';
-          feedback.textContent = 'Hasil: ' + (result.message || 'Berhasil');
+          feedback.textContent = 'Hasil: ' + (finalResult.message || 'Berhasil');
         } else {
           feedback.className = 'error';
-          feedback.textContent = 'Webhook belum tersedia atau gagal diambil.';
+          feedback.textContent = 'Belum ada respon dari server untuk saat ini. Coba beberapa detik lagi.';
         }
       } catch (err) {
         feedback.className = 'error';
