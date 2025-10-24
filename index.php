@@ -6,19 +6,50 @@ function norm_lower($s) { return function_exists('mb_strtolower') ? mb_strtolowe
 function getv($arr, $key, $default='') { return isset($arr[$key]) ? $arr[$key] : $default; }
 function get_first($arr, $keys, $default='') { if (!is_array($keys)) { $keys = array($keys); } foreach ($keys as $k) { if (isset($arr[$k])) return $arr[$k]; } return $default; }
 
+// Robust HTTP fetch: try file_get_contents, fallback to cURL
+function http_get($url) {
+    if (!$url) return false;
+    // Attempt file_get_contents with context
+    $ctx = stream_context_create(array(
+        'http' => array(
+            'method' => 'GET',
+            'timeout' => 10,
+            'header' => "User-Agent: PresensiWasbang/1.0\r\n"
+        )
+    ));
+    $content = @file_get_contents($url, false, $ctx);
+    if ($content !== false) return $content;
+    // Fallback to cURL
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'PresensiWasbang/1.0');
+        // Avoid SSL CA issues on some shared host
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        $body = curl_exec($ch);
+        curl_close($ch);
+        if ($body !== false) return $body;
+    }
+    return false;
+}
 
 function fetch_csv_assoc($url) {
-    if (!$url) return [];
-    $content = @file_get_contents($url);
-    if ($content === false) return [];
+    if (!$url) return array();
+    $content = http_get($url);
+    if ($content === false) return array();
     $lines = preg_split('/\r\n|\r|\n/', trim($content));
-    if (!$lines || count($lines) < 2) return [];
+    if (!$lines || count($lines) < 2) return array();
     $headers = str_getcsv(array_shift($lines));
-    $rows = [];
+    $rows = array();
     foreach ($lines as $line) {
         if ($line === '') continue;
         $cols = str_getcsv($line);
-        $row = [];
+        $row = array();
         foreach ($headers as $i => $h) {
             $row[trim(norm_lower($h))] = isset($cols[$i]) ? $cols[$i] : '';
         }
@@ -40,10 +71,10 @@ function parse_dt($val) {
     if (!$val) return null;
     $val = trim($val);
     // Try multiple formats typical from Google Sheets
-    $formats = [
+    $formats = array(
         'Y-m-d H:i:s', 'Y-m-d H:i', 'd/m/Y H:i', 'd/m/Y H:i:s', 'm/d/Y H:i', 'm/d/Y H:i:s',
         'Y-m-d', 'd/m/Y', 'm/d/Y'
-    ];
+    );
     foreach ($formats as $fmt) {
         $dt = DateTime::createFromFormat($fmt, $val, new DateTimeZone('Asia/Jakarta'));
         if ($dt instanceof DateTime) return $dt;
@@ -59,14 +90,14 @@ function get_active_session($url) {
     $headers = array_keys($rows[0]);
 
     // Guess header keys
-    $idKey = find_header($headers, ['id_sesi','session_id','id','kode_sesi','code']);
-    $nameKey = find_header($headers, ['nama_sesi','nama','session_name','name','title']);
-    $startKey = find_header($headers, ['mulai','start','start_time','waktu_mulai','start_at']);
-    $endKey = find_header($headers, ['selesai','end','end_time','waktu_selesai','end_at']);
+    $idKey = find_header($headers, array('id_sesi','session_id','id','kode_sesi','code'));
+    $nameKey = find_header($headers, array('nama_sesi','nama','session_name','name','title'));
+    $startKey = find_header($headers, array('mulai','start','start_time','waktu_mulai','start_at'));
+    $endKey = find_header($headers, array('selesai','end','end_time','waktu_selesai','end_at'));
 
     $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-    $active = [];
-    $upcoming = [];
+    $active = array();
+    $upcoming = array();
 
     foreach ($rows as $row) {
         $id = $idKey ? getv($row, $idKey, '') : get_first($row, array('id_sesi','session_id','id','kode_sesi','code'), '');
@@ -75,9 +106,9 @@ function get_active_session($url) {
         $end = parse_dt($endKey ? getv($row, $endKey, null) : get_first($row, array('selesai','end','end_time','waktu_selesai','end_at'), null));
         if (!$start && !$end) continue;
         if ($start && $end && $now >= $start && $now <= $end) {
-            $active[] = [ 'id' => $id, 'name' => $name, 'start' => $start, 'end' => $end, 'raw' => $row ];
+            $active[] = array('id' => $id, 'name' => $name, 'start' => $start, 'end' => $end, 'raw' => $row);
         } elseif ($start && $start > $now) {
-            $upcoming[] = [ 'id' => $id, 'name' => $name, 'start' => $start, 'end' => $end, 'raw' => $row ];
+            $upcoming[] = array('id' => $id, 'name' => $name, 'start' => $start, 'end' => $end, 'raw' => $row);
         }
     }
 
@@ -146,6 +177,7 @@ if ($session) {
         </div>
       <?php else: ?>
         <div class="subtitle">Tidak ada sesi aktif yang ditemukan saat ini. Silakan cek kembali jadwal.</div>
+        <div class="footer">Jika ini terjadi di hosting: pastikan server mengizinkan outbound HTTPS (allow_url_fopen atau cURL dengan SSL), karena data sesi diambil dari Google Sheets pada sisi server.</div>
       <?php endif; ?>
     </div>
   </div>
