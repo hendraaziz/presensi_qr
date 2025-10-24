@@ -4,6 +4,14 @@ require_once __DIR__ . '/config.php';
 $sessionId = isset($_GET['session_id']) ? trim($_GET['session_id']) : '';
 $ipAddress = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
 $userAgent = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '';
+
+// Derive allowed country codes and patterns
+$codesStr = defined('COUNTRY_CODES') ? COUNTRY_CODES : (defined('COUNTRY_CODE') ? COUNTRY_CODE : '62');
+$codesArr = array_filter(array_map('trim', explode(',', $codesStr)));
+if (!$codesArr) { $codesArr = array(defined('COUNTRY_CODE') ? COUNTRY_CODE : '62'); }
+$codesPattern = '(' . implode('|', $codesArr) . ')';
+$codesLabel = implode('/', $codesArr);
+$placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE') ? COUNTRY_CODE : '62');
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -55,9 +63,9 @@ $userAgent = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : 
         </div>
 
         <div class="field">
-          <label for="no_wa" class="label">No WhatsApp (format: <?php echo COUNTRY_CODE; ?>XXXXXXXXX)</label>
-          <input type="tel" id="no_wa" name="no_wa" class="input" inputmode="numeric" pattern="^<?php echo COUNTRY_CODE; ?>[0-9]{9,}$" minlength="11" placeholder="<?php echo COUNTRY_CODE; ?>xxxxxxxxx" required />
-          <div class="info">Hanya angka, minimal 11 digit, diawali <?php echo COUNTRY_CODE; ?>.</div>
+          <label for="no_wa" class="label">No WhatsApp (format: <?php echo htmlspecialchars($codesLabel); ?>XXXXXXXXX)</label>
+          <input type="tel" id="no_wa" name="no_wa" class="input" inputmode="numeric" pattern="^<?php echo $codesPattern; ?>[0-9]{9,}$" minlength="11" placeholder="<?php echo htmlspecialchars($placeholderCode); ?>xxxxxxxxx" required />
+          <div class="info">Hanya angka, minimal 11 digit, diawali salah satu dari: <?php echo htmlspecialchars($codesLabel); ?>.</div>
         </div>
         <div class="field">
           <label for="kode_sesi_peserta" class="label">Kode Sesi Peserta</label>
@@ -200,36 +208,26 @@ $userAgent = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : 
 
       const data = {
         nim: form.nim.value.trim(),
-        session_id: form.session_id.value,
-        ip_address: form.ip_address.value,
-        user_agent: form.user_agent.value,
-        device_fingerprint: form.device_fingerprint.value || fingerprintValue,
+        session_id: document.getElementById('session_id').value,
+        ip_address: document.getElementById('ip_address').value,
+        user_agent: document.getElementById('user_agent').value,
+        device_fingerprint: document.getElementById('device_fingerprint').value,
         no_wa: form.no_wa.value.trim(),
         kode_sesi_peserta: form.kode_sesi_peserta.value.trim(),
-        nama_peserta: (nimInfo && nimInfo.nama) ? nimInfo.nama : '',
-        perguruan_tinggi: (nimInfo && nimInfo.pt) ? nimInfo.pt : ''
+        nama_peserta: nimInfo?.nama || '',
+        perguruan_tinggi: nimInfo?.pt || ''
       };
-      const feedback = document.getElementById('feedback');
-      feedback.className = 'info';
-      feedback.textContent = 'Mengirim melalui proxy...';
+
       try {
         const res = await fetch(SUBMIT_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-          body: new URLSearchParams(data).toString()
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams(data)
         });
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok || body.success !== true) {
-          feedback.className = 'error';
-          feedback.textContent = 'Gagal mengirim: ' + (body.message || ('HTTP ' + res.status));
-          return;
-        }
-        feedback.className = 'success';
-        feedback.textContent = 'Presensi berhasil diteruskan ke n8n.';
-        form.querySelector('button[type=submit]').disabled = true;
+        const json = await res.json();
+        document.getElementById('feedback').textContent = json.success ? 'Sukses: ' + (json.message || '') : 'Gagal: ' + (json.message || 'Unknown error');
       } catch (err) {
-        feedback.className = 'error';
-        feedback.textContent = 'Kesalahan jaringan pada proxy.';
+        document.getElementById('feedback').textContent = 'Error submit: ' + (err && err.message ? err.message : err);
       }
     });
   </script>

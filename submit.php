@@ -31,10 +31,17 @@ if ($nim === '' || $sessionId === '') {
     echo json_encode(['success' => false, 'message' => 'Missing required fields: nim, session_id']);
     exit;
 }
-if ($noWa !== '' && !preg_match('/^' . COUNTRY_CODE . '[0-9]{9,}$/', $noWa)) {
+
+// Build allowed country codes pattern
+$codesStr = defined('COUNTRY_CODES') ? COUNTRY_CODES : (defined('COUNTRY_CODE') ? COUNTRY_CODE : '62');
+$codesArr = array_filter(array_map('trim', explode(',', $codesStr)));
+if (!$codesArr) { $codesArr = array(defined('COUNTRY_CODE') ? COUNTRY_CODE : '62'); }
+$codesPattern = '(' . implode('|', $codesArr) . ')';
+
+if ($noWa !== '' && !preg_match('/^' . $codesPattern . '[0-9]{9,}$/', $noWa)) {
     http_response_code(400);
     ob_clean();
-    echo json_encode(['success' => false, 'message' => 'Invalid no_wa: must start with ' . COUNTRY_CODE . ' and contain digits only (min 11 chars).']);
+    echo json_encode(['success' => false, 'message' => 'Invalid no_wa: must start with one of [' . implode(', ', $codesArr) . '] and contain digits only (min 11 chars).']);
     exit;
 }
 
