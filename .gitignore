@@ -1,0 +1,7 @@
+# Ignore environment-specific config and internal planning docs
+config.php
+kebutuhan_sistem.txt
+
+# Common noise
+.DS_Store
+Thumbs.db
