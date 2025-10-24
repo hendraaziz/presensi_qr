@@ -132,6 +132,13 @@ if (!isset($payload['device_fingerprint']) || trim($payload['device_fingerprint'
     $payload['device_fingerprint'] = md5($ua . '|' . $ip . '|' . (defined('SECRET_KEY') ? SECRET_KEY : ''));
 }
 
+// Tambahkan key agar n8n dapat mengembalikan dengan key yang sama
+$keyParts = [];
+if ($sessionId !== '') $keyParts[] = $sessionId;
+if ($nim !== '') $keyParts[] = $nim;
+if (isset($payload['device_fingerprint']) && trim($payload['device_fingerprint']) !== '') $keyParts[] = trim($payload['device_fingerprint']);
+$payload['key'] = $keyParts ? implode('|', $keyParts) : 'unknown';
+
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, N8N_WEBHOOK_URL);
 curl_setopt($ch, CURLOPT_POST, true);

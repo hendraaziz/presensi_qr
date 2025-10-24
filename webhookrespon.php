@@ -75,6 +75,8 @@ if (strtoupper($method) === 'POST') {
   $nim = trim((string)$nimRaw);
   $sessionId = trim((string)$sessionIdRaw);
   $fingerprint = trim((string)$fingerprintRaw);
+  // Dukungan key eksplisit dari upstream
+  $keyParam = isset($data['key']) ? trim((string)$data['key']) : '';
 
   // Dukungan field 'status' (opsional) dan 'message' (wajib)
   $message = '';
@@ -103,7 +105,7 @@ if (strtoupper($method) === 'POST') {
     exit;
   }
 
-  $key = buildKey($nim, $sessionId, $fingerprint);
+  $key = $keyParam !== '' ? $keyParam : buildKey($nim, $sessionId, $fingerprint);
   $path = storePath($storeDir, $key);
   $payload = [
     'success' => true,
@@ -111,6 +113,7 @@ if (strtoupper($method) === 'POST') {
     'nim' => $nim,
     'session_id' => $sessionId,
     'device_fingerprint' => $fingerprint,
+    'key' => $key,
     'timestamp' => time()
   ];
   file_put_contents($path, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
@@ -124,7 +127,8 @@ if (strtoupper($method) === 'POST') {
 $nim = isset($_GET['nim']) ? trim($_GET['nim']) : '';
 $sessionId = isset($_GET['session_id']) ? trim($_GET['session_id']) : '';
 $fingerprint = isset($_GET['device_fingerprint']) ? trim($_GET['device_fingerprint']) : '';
-$key = buildKey($nim, $sessionId, $fingerprint);
+$keyParam = isset($_GET['key']) ? trim($_GET['key']) : '';
+$key = $keyParam !== '' ? $keyParam : buildKey($nim, $sessionId, $fingerprint);
 $path = storePath($storeDir, $key);
 
 if (is_file($path)) {

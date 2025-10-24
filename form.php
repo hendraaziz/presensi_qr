@@ -314,8 +314,10 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
       }
     }
 
-    async function fetchWebhookResult(nim, sessionId, fingerprint) {
-      const params = new URLSearchParams({ nim, session_id: sessionId, device_fingerprint: fingerprint });
+    async function fetchWebhookResult(nim, sessionId, fingerprint, key) {
+      const paramsObj = { nim, session_id: sessionId, device_fingerprint: fingerprint };
+      if (key) paramsObj.key = key;
+      const params = new URLSearchParams(paramsObj);
       try {
         const res = await fetch(WEBHOOK_URL + '?' + params.toString(), { cache: 'no-store' });
         if (!res.ok) return null;
@@ -388,9 +390,10 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
         feedback.textContent = 'Data terkirim ke server. Menunggu respon...';
 
         let finalResult = null;
+        const key = [data.session_id, data.nim, data.device_fingerprint].filter(Boolean).join('|') || 'unknown';
         const maxAttempts = 12; // ~18 detik dengan interval 1.5s
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          const r = await fetchWebhookResult(data.nim, data.session_id, data.device_fingerprint);
+          const r = await fetchWebhookResult(data.nim, data.session_id, data.device_fingerprint, key);
           if (r && r.success) { finalResult = r; break; }
           await new Promise(resolve => setTimeout(resolve, 1500));
         }
