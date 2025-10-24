@@ -5,6 +5,95 @@ $sessionId = isset($_GET['session_id']) ? trim($_GET['session_id']) : '';
 $ipAddress = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
 $userAgent = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '';
 
+// Helper functions to detect active session (server-side)
+function norm_lower($s) { return function_exists('mb_strtolower') ? mb_strtolower($s) : strtolower($s); }
+function http_get($url) {
+  if (!$url) return false;
+  $ctx = stream_context_create(array('http' => array('method' => 'GET','timeout' => 10,'header' => "User-Agent: PresensiWasbang/1.0\r\n")));
+  $content = @file_get_contents($url, false, $ctx);
+  if ($content !== false) return $content;
+  if (function_exists('curl_init')) {
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_USERAGENT, 'PresensiWasbang/1.0');
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    $body = curl_exec($ch);
+    curl_close($ch);
+    if ($body !== false) return $body;
+  }
+  return false;
+}
+function fetch_csv_assoc($url) {
+  $content = http_get($url);
+  if ($content === false) return array();
+  $lines = preg_split('/\r\n|\r|\n/', trim($content));
+  if (!$lines || count($lines) < 2) return array();
+  $headers = str_getcsv(array_shift($lines));
+  $rows = array();
+  foreach ($lines as $line) {
+    if ($line === '') continue;
+    $cols = str_getcsv($line);
+    $row = array();
+    foreach ($headers as $i => $h) {
+      $row[trim(norm_lower($h))] = isset($cols[$i]) ? $cols[$i] : '';
+    }
+    $rows[] = $row;
+  }
+  return $rows;
+}
+function get_first($arr, $keys, $default='') { if (!is_array($keys)) { $keys = array($keys); } foreach ($keys as $k) { if (isset($arr[$k])) return $arr[$k]; } return $default; }
+function parse_dt($val) {
+  if (!$val) return null;
+  $val = trim($val);
+  $formats = array('Y-m-d H:i:s','Y-m-d H:i','d/m/Y H:i','d/m/Y H:i:s','m/d/Y H:i','m/d/Y H:i:s','Y-m-d','d/m/Y','m/d/Y');
+  foreach ($formats as $fmt) {
+    $dt = DateTime::createFromFormat($fmt, $val, new DateTimeZone('Asia/Jakarta'));
+    if ($dt instanceof DateTime) return $dt;
+  }
+  $ts = strtotime($val);
+  if ($ts !== false) return (new DateTime('@' . $ts))->setTimezone(new DateTimeZone('Asia/Jakarta'));
+  return null;
+}
+function get_active_sessions($url) {
+  $rows = fetch_csv_assoc($url);
+  if (!$rows) return array();
+  $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+  $active = array();
+  foreach ($rows as $row) {
+    $id = get_first($row, array('id_sesi','session_id','id','kode_sesi','code'), '');
+    $start = parse_dt(get_first($row, array('mulai','start','start_time','waktu_mulai','start_at'), null));
+    $end = parse_dt(get_first($row, array('selesai','end','end_time','waktu_selesai','end_at'), null));
+    if ($start && $end && $now >= $start && $now <= $end) {
+      $active[] = $id;
+    }
+  }
+  return $active;
+}
+function is_session_active($url, $sid) {
+  if (!$sid) return false;
+  $actives = get_active_sessions($url);
+  return in_array($sid, $actives, true);
+}
+
+// Determine session ID if missing
+$sessionActive = false;
+if ($sessionId === '') {
+  $activeIds = get_active_sessions(GOOGLE_SHEET_SESI_URL);
+  if ($activeIds) {
+    $sessionId = $activeIds[0];
+    $sessionActive = true;
+  } else {
+    $sessionActive = false;
+  }
+} else {
+  $sessionActive = is_session_active(GOOGLE_SHEET_SESI_URL, $sessionId);
+}
+
 // Derive allowed country codes and patterns
 $codesStr = defined('COUNTRY_CODES') ? COUNTRY_CODES : (defined('COUNTRY_CODE') ? COUNTRY_CODE : '62');
 $codesArr = array_filter(array_map('trim', explode(',', $codesStr)));
@@ -34,19 +123,24 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
     .info { margin-top:16px; font-size:.95rem; color:#9ca3af; }
     .success { margin-top:16px; padding:12px; background:#064e3b; color:#d1fae5; border-radius:10px; }
     .error { margin-top:16px; padding:12px; background:#7f1d1d; color:#fee2e2; border-radius:10px; }
+    .warn { margin-top:16px; padding:12px; background:#78350f; color:#fde68a; border-radius:10px; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="card">
       <div class="title">Form Presensi</div>
-      <div class="subtitle">Sesi ID: <strong id="sessionIdText"><?php echo htmlspecialchars($sessionId ?: '—'); ?></strong></div>
-      <!-- <div class="subtitle">Status Sesi: <span id="sessionStatus">Menunggu validasi oleh n8n</span></div> -->
+      <?php if ($sessionActive): ?>
+        <div class="subtitle">Sesi ID: <strong id="sessionIdText"><?php echo htmlspecialchars($sessionId); ?></strong></div>
+      <?php else: ?>
+        <div class="subtitle">Tidak ada sesi aktif.</div>
+        <div class="subtitle">Sesi ID: <strong id="sessionIdText">—</strong></div>
+      <?php endif; ?>
 
       <form id="presensiForm">
         <div class="field">
           <label for="nim" class="label">NIM Peserta</label>
-          <input type="text" id="nim" name="nim" class="input" placeholder="Masukkan NIM" required />
+          <input type="text" id="nim" name="nim" class="input" placeholder="Masukkan NIM" required <?php echo $sessionActive ? '' : 'disabled'; ?> />
         </div>
 
         <div class="field">
@@ -64,12 +158,12 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
 
         <div class="field">
           <label for="no_wa" class="label">No WhatsApp (format: <?php echo htmlspecialchars($codesLabel); ?>XXXXXXXXX)</label>
-          <input type="tel" id="no_wa" name="no_wa" class="input" inputmode="numeric" pattern="^<?php echo $codesPattern; ?>[0-9]{9,}$" minlength="11" placeholder="<?php echo htmlspecialchars($placeholderCode); ?>xxxxxxxxx" required />
+          <input type="tel" id="no_wa" name="no_wa" class="input" inputmode="numeric" pattern="^<?php echo $codesPattern; ?>[0-9]{9,}$" minlength="11" placeholder="<?php echo htmlspecialchars($placeholderCode); ?>xxxxxxxxx" required <?php echo $sessionActive ? '' : 'disabled'; ?> />
           <div class="info">Hanya angka, minimal 11 digit, diawali salah satu dari: <?php echo htmlspecialchars($codesLabel); ?>.</div>
         </div>
         <div class="field">
           <label for="kode_sesi_peserta" class="label">Kode Sesi Peserta</label>
-          <input type="text" id="kode_sesi_peserta" name="kode_sesi_peserta" class="input" placeholder="Masukkan kode sesi peserta" required />
+          <input type="text" id="kode_sesi_peserta" name="kode_sesi_peserta" class="input" placeholder="Masukkan kode sesi peserta" required <?php echo $sessionActive ? '' : 'disabled'; ?> />
         </div>
 
         <input type="hidden" id="session_id" name="session_id" value="<?php echo htmlspecialchars($sessionId); ?>" />
@@ -77,7 +171,7 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
         <input type="hidden" id="user_agent" name="user_agent" value="<?php echo htmlspecialchars($userAgent); ?>" />
         <input type="hidden" id="device_fingerprint" name="device_fingerprint" value="" />
 
-        <button type="submit" class="btn">Submit Presensi</button>
+        <button type="submit" class="btn" id="submitBtn" <?php echo $sessionActive ? '' : 'disabled'; ?>>Submit Presensi</button>
       </form>
 
       <div id="feedback" class="info"></div>
@@ -86,9 +180,10 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
 
   <script>
     const SUBMIT_URL = 'submit.php';
+    const WEBHOOK_URL = 'webhookrespon.php';
     const NIM_GSHEET_URL = <?php echo json_encode(NIM_GSHEET_URL); ?>;
+    const SESSION_ACTIVE = <?php echo $sessionActive ? 'true' : 'false'; ?>;
 
-    // Load FingerprintJS v3
     (function loadFP() {
       const s = document.createElement('script');
       s.async = true;
@@ -177,13 +272,17 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
     }
 
     let nimInfo = null;
+    const namaEl = document.getElementById('namaPeserta');
+    const ptEl = document.getElementById('ptPeserta');
+    const statusEl = document.getElementById('statusPeserta');
+
     document.getElementById('nim').addEventListener('blur', async (e) => {
       const nim = e.target.value.trim();
       nimInfo = await lookupNamaByNIM(nim);
-      document.getElementById('namaPeserta').textContent = nimInfo?.nama || 'Tidak ditemukan di master NIM';
-      document.getElementById('ptPeserta').textContent = nimInfo?.pt || '—';
+      namaEl.textContent = nimInfo?.nama || 'Nama Tidak Ditemukan, Cek kembali NIM anda';
+      ptEl.textContent = nimInfo?.pt || '—';
       const statusText = (nimInfo?.is_aktif || '').toString().toLowerCase();
-      document.getElementById('statusPeserta').textContent = statusText ? (['1','true','ya','aktif'].includes(statusText) ? 'Aktif' : 'Tidak Aktif') : '—';
+      statusEl.textContent = statusText ? (['1','true','ya','aktif'].includes(statusText) ? 'Aktif' : 'Tidak Aktif') : '—';
     });
 
     // Sanitasi input no_wa: hanya angka
@@ -192,9 +291,51 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
       e.target.value = v;
     });
 
+    async function simulateWebhook(nim, sessionId, fingerprint) {
+      const outcomes = [
+        'data presensi berhasil disimpan',
+        'anda telah presensi di sesi ini',
+        'device sudah digunakan untuk presensi'
+      ];
+      const msg = outcomes[Math.floor(Math.random() * outcomes.length)];
+      const body = new URLSearchParams({
+        nim: nim,
+        session_id: sessionId,
+        device_fingerprint: fingerprint,
+        message: msg,
+        simulate: '1'
+      });
+      try {
+        const res = await fetch(WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+        const json = await res.json();
+        return json;
+      } catch (e) {
+        return { success: false, message: 'Gagal simulasi webhook' };
+      }
+    }
+
+    async function fetchWebhookResult(nim, sessionId, fingerprint) {
+      const params = new URLSearchParams({ nim, session_id: sessionId, device_fingerprint: fingerprint });
+      try {
+        const res = await fetch(WEBHOOK_URL + '?' + params.toString(), { cache: 'no-store' });
+        if (!res.ok) return null;
+        const json = await res.json();
+        return json;
+      } catch (e) { return null; }
+    }
+
     document.getElementById('presensiForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const form = e.target;
+      const submitBtn = document.getElementById('submitBtn');
+      const feedback = document.getElementById('feedback');
+
+      if (!SESSION_ACTIVE) {
+        feedback.className = 'error';
+        feedback.textContent = 'Sesi tidak aktif. Gagal menyimpan.';
+        return;
+      }
+
       // Pastikan fingerprint terisi
       if (!fingerprintValue) {
         fingerprintValue = computeSimpleFingerprint();
@@ -204,6 +345,13 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
       // Pastikan info NIM tersedia
       if (!nimInfo) {
         nimInfo = await lookupNamaByNIM(form.nim.value.trim());
+      }
+
+      // Validasi: nama dan perguruan tinggi harus ada
+      if (!nimInfo || !(nimInfo.nama && nimInfo.pt)) {
+        feedback.className = 'error';
+        feedback.textContent = 'Data peserta tidak lengkap (nama/perguruan tinggi). Silakan cek NIM dan coba lagi.';
+        return;
       }
 
       const data = {
@@ -218,6 +366,10 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
         perguruan_tinggi: nimInfo?.pt || ''
       };
 
+      feedback.className = 'warn';
+      feedback.textContent = 'Proses Penyimpanan Data ...';
+      submitBtn.disabled = true;
+
       try {
         const res = await fetch(SUBMIT_URL, {
           method: 'POST',
@@ -225,9 +377,27 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
           body: new URLSearchParams(data)
         });
         const json = await res.json();
-        document.getElementById('feedback').textContent = json.success ? 'Sukses: ' + (json.message || '') : 'Gagal: ' + (json.message || 'Unknown error');
+        if (!json.success) {
+          feedback.className = 'error';
+          feedback.textContent = 'Gagal mengirim ke proxy: ' + (json.message || 'Unknown error');
+          submitBtn.disabled = false;
+          return;
+        }
+        // Simulasikan webhook dari n8n
+        await simulateWebhook(data.nim, data.session_id, data.device_fingerprint);
+        // Ambil hasil webhook
+        const result = await fetchWebhookResult(data.nim, data.session_id, data.device_fingerprint);
+        if (result && result.success) {
+          feedback.className = 'success';
+          feedback.textContent = 'Hasil: ' + (result.message || 'Berhasil');
+        } else {
+          feedback.className = 'error';
+          feedback.textContent = 'Webhook belum tersedia atau gagal diambil.';
+        }
       } catch (err) {
-        document.getElementById('feedback').textContent = 'Error submit: ' + (err && err.message ? err.message : err);
+        feedback.className = 'error';
+        feedback.textContent = 'Error submit: ' + (err && err.message ? err.message : err);
+        submitBtn.disabled = false;
       }
     });
   </script>

@@ -172,9 +172,9 @@ if ($session) {
             <img alt="QR Presensi" src="https://quickchart.io/qr?text=<?php echo urlencode($formUrl); ?>&size=300&margin=10&format=png" />
           <?php endif; ?>
         </div>
-        <div class="footer">
+        <!-- <div class="footer">
           Jika QR tidak terbaca, buka link manual: <a class="btn" href="<?php echo htmlspecialchars($formUrl); ?>">Buka Form Presensi</a>
-        </div>
+        </div> -->
       <?php else: ?>
         <div class="subtitle">Tidak ada sesi aktif yang ditemukan saat ini. Silakan cek kembali jadwal.</div>
         <div class="footer">Jika ini terjadi di hosting: pastikan server mengizinkan outbound HTTPS (allow_url_fopen atau cURL dengan SSL), karena data sesi diambil dari Google Sheets pada sisi server.</div>

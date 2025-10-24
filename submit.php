@@ -45,6 +45,81 @@ if ($noWa !== '' && !preg_match('/^' . $codesPattern . '[0-9]{9,}$/', $noWa)) {
     exit;
 }
 
+// ---- Check active session from Google Sheet ----
+function norm_lower($s) { return function_exists('mb_strtolower') ? mb_strtolower($s) : strtolower($s); }
+function http_get($url) {
+    if (!$url) return false;
+    $ctx = stream_context_create(array('http' => array('method' => 'GET','timeout' => 10,'header' => "User-Agent: PresensiWasbang/1.0\r\n")));
+    $content = @file_get_contents($url, false, $ctx);
+    if ($content !== false) return $content;
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'PresensiWasbang/1.0');
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        $body = curl_exec($ch);
+        curl_close($ch);
+        if ($body !== false) return $body;
+    }
+    return false;
+}
+function fetch_csv_assoc($url) {
+    $content = http_get($url);
+    if ($content === false) return array();
+    $lines = preg_split('/\r\n|\r|\n/', trim($content));
+    if (!$lines || count($lines) < 2) return array();
+    $headers = str_getcsv(array_shift($lines));
+    $rows = array();
+    foreach ($lines as $line) {
+        if ($line === '') continue;
+        $cols = str_getcsv($line);
+        $row = array();
+        foreach ($headers as $i => $h) {
+            $row[trim(norm_lower($h))] = isset($cols[$i]) ? $cols[$i] : '';
+        }
+        $rows[] = $row;
+    }
+    return $rows;
+}
+function get_first($arr, $keys, $default='') { if (!is_array($keys)) { $keys = array($keys); } foreach ($keys as $k) { if (isset($arr[$k])) return $arr[$k]; } return $default; }
+function parse_dt($val) {
+    if (!$val) return null;
+    $val = trim($val);
+    $formats = array('Y-m-d H:i:s','Y-m-d H:i','d/m/Y H:i','d/m/Y H:i:s','m/d/Y H:i','m/d/Y H:i:s','Y-m-d','d/m/Y','m/d/Y');
+    foreach ($formats as $fmt) {
+        $dt = DateTime::createFromFormat($fmt, $val, new DateTimeZone('Asia/Jakarta'));
+        if ($dt instanceof DateTime) return $dt;
+    }
+    $ts = strtotime($val);
+    if ($ts !== false) return (new DateTime('@' . $ts))->setTimezone(new DateTimeZone('Asia/Jakarta'));
+    return null;
+}
+function is_session_active($url, $sessionId) {
+    $rows = fetch_csv_assoc($url);
+    if (!$rows) return false;
+    $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+    foreach ($rows as $row) {
+        $id = get_first($row, array('id_sesi','session_id','id','kode_sesi','code'), '');
+        if ($id !== $sessionId) continue;
+        $start = parse_dt(get_first($row, array('mulai','start','start_time','waktu_mulai','start_at'), null));
+        $end = parse_dt(get_first($row, array('selesai','end','end_time','waktu_selesai','end_at'), null));
+        if ($start && $end && $now >= $start && $now <= $end) return true;
+    }
+    return false;
+}
+
+if (!is_session_active(GOOGLE_SHEET_SESI_URL, $sessionId)) {
+    http_response_code(400);
+    ob_clean();
+    echo json_encode(['success' => false, 'message' => 'Sesi tidak aktif atau tidak ditemukan.']);
+    exit;
+}
+
 $payload = $data;
 $payload['proxy_received_at'] = date('c');
 $payload['proxy_ip'] = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
