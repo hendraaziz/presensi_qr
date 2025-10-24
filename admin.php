@@ -37,6 +37,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $N8N_WEBHOOK_URL = post('N8N_WEBHOOK_URL', N8N_WEBHOOK_URL);
     $SECRET_KEY = post('SECRET_KEY', SECRET_KEY);
     $COUNTRY_CODE = post('COUNTRY_CODE', COUNTRY_CODE);
+    $QR_SIZE = (int)post('QR_SIZE', defined('QR_SIZE') ? QR_SIZE : 500);
+    $QR_MARGIN = (int)post('QR_MARGIN', defined('QR_MARGIN') ? QR_MARGIN : 2);
+    if ($QR_SIZE < 100) $QR_SIZE = 100;
+    if ($QR_SIZE > 1000) $QR_SIZE = 1000;
+    if ($QR_MARGIN < 0) $QR_MARGIN = 0;
+    if ($QR_MARGIN > 20) $QR_MARGIN = 20;
 
     // Bangun konten config.php
     $content = "<?php\n";
@@ -45,6 +51,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $content .= "// Sesi (gid=741782867) dan Master NIM (gid=0)\n\n";
     $content .= "// Judul aplikasi & kredensial admin (login via admin.php)\n";
     $content .= "define('APP_TITLE', " . var_export($APP_TITLE, true) . ");\n";
+    $content .= "define('QR_SIZE', " . var_export($QR_SIZE, true) . ");\n";
+    $content .= "define('QR_MARGIN', " . var_export($QR_MARGIN, true) . ");\n";
     $content .= "define('ADMIN_USERNAME', " . var_export($ADMIN_USERNAME, true) . ");\n";
     $content .= "define('ADMIN_PASSWORD', " . var_export($ADMIN_PASSWORD, true) . ");\n\n";
     $content .= "// Google Sheets\n";
@@ -137,6 +145,16 @@ $cfgMtimeText = $cfgMtime ? date('Y-m-d H:i:s', $cfgMtime) : 'unknown';
           <div class="field">
             <label class="label">Judul Aplikasi (APP_TITLE)</label>
             <input class="input" type="text" name="APP_TITLE" value="<?php echo h(APP_TITLE); ?>" />
+          </div>
+          <div class="row">
+            <div class="field">
+              <label class="label">QR Size (QR_SIZE)</label>
+              <input class="input" type="number" min="100" max="1000" name="QR_SIZE" value="<?php echo h(defined('QR_SIZE') ? QR_SIZE : 500); ?>" />
+            </div>
+            <div class="field">
+              <label class="label">QR Margin (QR_MARGIN)</label>
+              <input class="input" type="number" min="0" max="20" name="QR_MARGIN" value="<?php echo h(defined('QR_MARGIN') ? QR_MARGIN : 2); ?>" />
+            </div>
           </div>
           <div class="row">
             <div class="field">

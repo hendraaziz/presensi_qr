@@ -7,6 +7,10 @@ define('APP_TITLE', 'Presensi Wasbang');
 define('ADMIN_USERNAME', 'admin');
 define('ADMIN_PASSWORD', 'changeme');
 
+// QR Code configuration
+define('QR_SIZE', 500); // 100–1000
+define('QR_MARGIN', 2); // 0–20
+
 // Google Sheet URLs (CSV export)
 define('GOOGLE_SHEET_SESI_URL', 'https://docs.google.com/spreadsheets/d/.../export?format=csv&gid=741782867');
 define('NIM_GSHEET_URL', 'https://docs.google.com/spreadsheets/d/.../export?format=csv&gid=0');

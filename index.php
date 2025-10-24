@@ -169,7 +169,7 @@ if ($session) {
         <div class="subtitle">Waktu: <?php echo $session['start'] ? $session['start']->format('d/m/Y H:i') : '—'; ?> s/d <?php echo $session['end'] ? $session['end']->format('d/m/Y H:i') : '—'; ?></div>
         <div class="qr-wrap">
           <?php if ($formUrl): ?>
-            <img alt="QR Presensi" src="https://quickchart.io/qr?text=<?php echo urlencode($formUrl); ?>&size=500&margin=10&format=png" />
+            <img alt="QR Presensi" src="https://quickchart.io/qr?text=<?php echo urlencode($formUrl); ?>&size=<?php echo defined('QR_SIZE') ? (int)QR_SIZE : 500; ?>&margin=<?php echo defined('QR_MARGIN') ? (int)QR_MARGIN : 2; ?>&format=png" />
           <?php endif; ?>
         </div>
         <!-- <div class="footer">
