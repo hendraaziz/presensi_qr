@@ -117,6 +117,7 @@ function get_active_session($url) {
     // Guess header keys
     $idKey = find_header($headers, array('id_sesi','session_id','id','kode_sesi','code'));
     $nameKey = find_header($headers, array('nama_sesi','nama','session_name','name','title'));
+    $KegiatanKey = find_header($headers, array('code_kegiatan','kode_kegiatan','code_name','kegiatan_kode','Kode Kegiatan'));
     $startKey = find_header($headers, array('mulai','start','start_time','waktu_mulai','start_at'));
     $endKey = find_header($headers, array('selesai','end','end_time','waktu_selesai','end_at'));
 
@@ -126,14 +127,15 @@ function get_active_session($url) {
 
     foreach ($rows as $row) {
         $id = $idKey ? getv($row, $idKey, '') : get_first($row, array('id_sesi','session_id','id','kode_sesi','code'), '');
+        $Kegiatan = $KegiatanKey ? getv($row, $KegiatanKey, '') : get_first($row, array('code_kegiatan','kode_kegiatan','code_name','kegiatan_kode','Kode Kegiatan'), 'Kode Kegiatan');
         $name = $nameKey ? getv($row, $nameKey, '') : get_first($row, array('nama_sesi','nama','session_name','name','title'), 'Sesi');
         $start = parse_dt($startKey ? getv($row, $startKey, null) : get_first($row, array('mulai','start','start_time','waktu_mulai','start_at'), null));
         $end = parse_dt($endKey ? getv($row, $endKey, null) : get_first($row, array('selesai','end','end_time','waktu_selesai','end_at'), null));
         if (!$start && !$end) continue;
         if ($start && $end && $now >= $start && $now <= $end) {
-            $active[] = array('id' => $id, 'name' => $name, 'start' => $start, 'end' => $end, 'raw' => $row);
+            $active[] = array('id' => $id, 'name' => $name, 'kegiatan_kode' => $Kegiatan, 'start' => $start, 'end' => $end, 'raw' => $row);
         } elseif ($start && $start > $now) {
-            $upcoming[] = array('id' => $id, 'name' => $name, 'start' => $start, 'end' => $end, 'raw' => $row);
+            $upcoming[] = array('id' => $id, 'name' => $name, 'kegiatan_kode' => $Kegiatan, 'start' => $start, 'end' => $end, 'raw' => $row);
         }
     }
 
@@ -192,6 +194,19 @@ if ($session) {
     <div class="card">
       <div class="title">Sistem <?php echo htmlspecialchars(defined('APP_TITLE') ? APP_TITLE : 'Presensi Wasbang'); ?></div>
       <?php if ($session): ?>
+                <?php
+        $kegiatan = '';
+        if (isset($session['raw']) && is_array($session['raw'])) {
+            $kegiatan = get_first(
+            $session['raw'],
+            array('kegiatan','nama_kegiatan','kode_kegiatan','kode','activity_code','code_kegiatan','kegiatan_code'),
+            ''
+            );
+        }
+        if ($kegiatan):
+        ?>
+        <div class="subtitle">Kode Kegiatan: <strong><?php echo htmlspecialchars($kegiatan); ?></strong></div>
+        <?php endif; ?>
         <div class="subtitle">Sesi: <strong><?php echo htmlspecialchars($session['name']); ?></strong></div>
         <div class="subtitle">Waktu: <?php echo $session['start'] ? $session['start']->format('d/m/Y H:i') : '—'; ?> s/d <?php echo $session['end'] ? $session['end']->format('d/m/Y H:i') : '—'; ?></div>
         <div class="qr-wrap">
@@ -207,7 +222,7 @@ if ($session) {
         </div> -->
       <?php else: ?>
         <div class="subtitle">Tidak ada sesi aktif yang ditemukan saat ini. Silakan cek kembali jadwal.</div>
-        <div class="footer">Jika ini terjadi di hosting: pastikan server mengizinkan outbound HTTPS (allow_url_fopen atau cURL dengan SSL), karena data sesi diambil dari Google Sheets pada sisi server.</div>
+        <!-- <div class="footer">Jika ini terjadi di hosting: pastikan server mengizinkan outbound HTTPS (allow_url_fopen atau cURL dengan SSL), karena data sesi diambil dari Google Sheets pada sisi server.</div> -->
       <?php endif; ?>
     </div>
   </div>

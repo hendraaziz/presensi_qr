@@ -213,7 +213,7 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
         <div class="field">
           <label for="no_wa" class="label">No WhatsApp (format: <?php echo htmlspecialchars($codesLabel); ?>XXXXXXXXX)</label>
           <input type="tel" id="no_wa" name="no_wa" class="input" inputmode="numeric" pattern="^<?php echo $codesPattern; ?>[0-9]{9,}$" minlength="11" placeholder="<?php echo htmlspecialchars($placeholderCode); ?>xxxxxxxxx" required <?php echo $sessionActive ? '' : 'disabled'; ?> />
-          <div class="info">Hanya angka, minimal 11 digit, diawali salah satu dari: <?php echo htmlspecialchars($codesLabel); ?>.</div>
+          <div class="info">Hanya angka, minimal 11 digit, diawali Kode Negara Misalnya: <?php echo htmlspecialchars($codesLabel); ?>.</div>
         </div>
         <div class="field">
           <label for="kode_sesi_peserta" class="label">Kode Sesi Peserta</label>
