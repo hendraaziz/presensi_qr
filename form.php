@@ -291,28 +291,7 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
       e.target.value = v;
     });
 
-    async function simulateWebhook(nim, sessionId, fingerprint) {
-      const outcomes = [
-        'data presensi berhasil disimpan',
-        'anda telah presensi di sesi ini',
-        'device sudah digunakan untuk presensi'
-      ];
-      const msg = outcomes[Math.floor(Math.random() * outcomes.length)];
-      const body = new URLSearchParams({
-        nim: nim,
-        session_id: sessionId,
-        device_fingerprint: fingerprint,
-        message: msg,
-        simulate: '1'
-      });
-      try {
-        const res = await fetch(WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
-        const json = await res.json();
-        return json;
-      } catch (e) {
-        return { success: false, message: 'Gagal simulasi webhook' };
-      }
-    }
+    // Fungsi simulateWebhook dihapus - gunakan balikan asli dari n8n
 
     async function fetchWebhookResult(nim, sessionId, fingerprint, key) {
       const paramsObj = { nim, session_id: sessionId, device_fingerprint: fingerprint };

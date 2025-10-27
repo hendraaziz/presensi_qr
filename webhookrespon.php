@@ -86,17 +86,7 @@ if (strtoupper($method) === 'POST') {
     $message = trim((string)$data['msg']);
   }
 
-  $simulate = isset($data['simulate']) ? (string)$data['simulate'] : '';
-  if ($simulate) {
-    if ($message === '') {
-      $msgs = [
-        'data presensi berhasil disimpan',
-        'anda telah presensi di sesi ini',
-        'device sudah digunakan untuk presensi'
-      ];
-      $message = $msgs[array_rand($msgs)];
-    }
-  }
+  // Mode simulasi dihapus - gunakan pesan asli dari n8n
 
   if ($message === '') {
     http_response_code(400);
