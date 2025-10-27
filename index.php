@@ -165,9 +165,17 @@ function get_active_session($url) {
 $session = get_active_session(GOOGLE_SHEET_SESI_URL);
 $formUrl = null;
 $qrSecret = null;
+$isActive = false;
 if ($session) {
-    $qrSecret = generate_time_secret($session['id']);
-    $formUrl = base_url() . '/form.php?session_id=' . urlencode($session['id']) . '&secret=' . urlencode($qrSecret);
+    $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+    $isActive = ($session['start'] instanceof DateTime) && ($session['end'] instanceof DateTime)
+      && ($now >= $session['start'] && $now <= $session['end']);
+    if ($isActive) {
+        $qrSecret = generate_time_secret($session['id']);
+        $formUrl = base_url() . '/form.php?session_id=' . urlencode($session['id']) . '&secret=' . urlencode($qrSecret);
+    } else {
+        $formUrl = null;
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -193,7 +201,7 @@ if ($session) {
   <div class="container">
     <div class="card">
       <div class="title">Sistem <?php echo htmlspecialchars(defined('APP_TITLE') ? APP_TITLE : 'Presensi Wasbang'); ?></div>
-      <?php if ($session): ?>
+      <?php if ($isActive): ?>
                 <?php
         $kegiatan = '';
         if (isset($session['raw']) && is_array($session['raw'])) {
@@ -214,9 +222,11 @@ if ($session) {
             <img id="qr-image" alt="QR Presensi" src="https://quickchart.io/qr?text=<?php echo urlencode($formUrl); ?>&size=<?php echo defined('QR_SIZE') ? (int)QR_SIZE : 500; ?>&margin=<?php echo defined('QR_MARGIN') ? (int)QR_MARGIN : 2; ?>&format=png" />
           <?php endif; ?>
         </div>
+        <?php if ($formUrl): ?>
         <div class="subtitle" style="text-align: center; margin-top: 16px;">
           <span id="refresh-timer">QR akan refresh dalam <strong>60</strong> detik</span>
         </div>
+        <?php endif; ?>
         <!-- <div class="footer">
           Jika QR tidak terbaca, buka link manual: <a class="btn" href="<?php echo htmlspecialchars($formUrl); ?>">Buka Form Presensi</a>
         </div> -->
@@ -227,7 +237,7 @@ if ($session) {
     </div>
   </div>
 
-  <?php if ($session): ?>
+  <?php if ($formUrl): ?>
   <script>
     let countdown = 60;
     const sessionId = <?php echo json_encode($session['id']); ?>;
