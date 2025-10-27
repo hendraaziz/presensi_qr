@@ -1,9 +1,63 @@
 <?php
 require_once __DIR__ . '/config.php';
 
+// Validate time-based secret for QR security
+function validate_time_secret($session_id, $provided_secret, $time_window = 60, $tolerance = 1) {
+    $current_time = time();
+    $current_slot = floor($current_time / $time_window);
+    $secret_key = defined('SECRET_KEY') ? SECRET_KEY : 'default_secret_key_change_this';
+    
+    // Check current time slot and previous slots within tolerance
+    for ($i = 0; $i <= $tolerance; $i++) {
+        $check_slot = $current_slot - $i;
+        $expected_secret = hash('sha256', $session_id . '|' . $check_slot . '|' . $secret_key);
+        if (hash_equals($expected_secret, $provided_secret)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 $sessionId = isset($_GET['session_id']) ? trim($_GET['session_id']) : '';
+$providedSecret = isset($_GET['secret']) ? trim($_GET['secret']) : '';
 $ipAddress = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
 $userAgent = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '';
+
+// Security check: validate secret parameter
+if (empty($sessionId) || empty($providedSecret) || !validate_time_secret($sessionId, $providedSecret)) {
+    http_response_code(403);
+    ?>
+    <!DOCTYPE html>
+    <html lang="id">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Akses Ditolak - <?php echo htmlspecialchars(defined('APP_TITLE') ? APP_TITLE : 'Presensi Wasbang'); ?></title>
+        <style>
+            body { margin:0; font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color:#e5e7eb; }
+            .container { min-height: 100vh; display:flex; align-items:center; justify-content:center; padding: 24px; }
+            .card { width: min(500px, 92vw); background: #111827; border: 1px solid #dc2626; border-radius: 16px; padding: 24px; text-align: center; }
+            .title { font-size: 1.5rem; font-weight: 700; color: #dc2626; margin-bottom: 16px; }
+            .message { color: #9ca3af; margin-bottom: 20px; line-height: 1.5; }
+            .btn { display:inline-block; padding:10px 16px; background:#2563eb; color:#fff; border-radius:8px; text-decoration:none; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="card">
+                <div class="title">🚫 Akses Ditolak</div>
+                <div class="message">
+                    Anda tidak memiliki akses ke halaman ini.<br>
+                    Silakan scan QR code yang valid untuk melakukan presensi.
+                </div>
+                <a href="<?php echo base_url(); ?>" class="btn">Kembali ke Halaman Utama</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    <?php
+    exit;
+}
 
 // Helper functions to detect active session (server-side)
 function norm_lower($s) { return function_exists('mb_strtolower') ? mb_strtolower($s) : strtolower($s); }
@@ -151,10 +205,10 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
           <label class="label">Perguruan Tinggi</label>
           <div id="ptPeserta" class="info">—</div>
         </div>
-        <div class="field">
+        <!-- <div class="field">
           <label class="label">Status Peserta</label>
           <div id="statusPeserta" class="info">—</div>
-        </div>
+        </div> -->
 
         <div class="field">
           <label for="no_wa" class="label">No WhatsApp (format: <?php echo htmlspecialchars($codesLabel); ?>XXXXXXXXX)</label>

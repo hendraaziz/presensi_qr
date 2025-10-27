@@ -3,6 +3,31 @@ require_once __DIR__ . '/config.php';
 
 function norm_lower($s) { return function_exists('mb_strtolower') ? mb_strtolower($s) : strtolower($s); }
 
+// Generate time-based secret for QR security
+function generate_time_secret($session_id, $time_window = 60) {
+    $current_time = time();
+    $time_slot = floor($current_time / $time_window);
+    $secret_key = defined('SECRET_KEY') ? SECRET_KEY : 'default_secret_key_change_this';
+    return hash('sha256', $session_id . '|' . $time_slot . '|' . $secret_key);
+}
+
+// Validate time-based secret
+function validate_time_secret($session_id, $provided_secret, $time_window = 60, $tolerance = 1) {
+    $current_time = time();
+    $current_slot = floor($current_time / $time_window);
+    $secret_key = defined('SECRET_KEY') ? SECRET_KEY : 'default_secret_key_change_this';
+    
+    // Check current time slot and previous slots within tolerance
+    for ($i = 0; $i <= $tolerance; $i++) {
+        $check_slot = $current_slot - $i;
+        $expected_secret = hash('sha256', $session_id . '|' . $check_slot . '|' . $secret_key);
+        if (hash_equals($expected_secret, $provided_secret)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function getv($arr, $key, $default='') { return isset($arr[$key]) ? $arr[$key] : $default; }
 function get_first($arr, $keys, $default='') { if (!is_array($keys)) { $keys = array($keys); } foreach ($keys as $k) { if (isset($arr[$k])) return $arr[$k]; } return $default; }
 
@@ -137,8 +162,10 @@ function get_active_session($url) {
 
 $session = get_active_session(GOOGLE_SHEET_SESI_URL);
 $formUrl = null;
+$qrSecret = null;
 if ($session) {
-    $formUrl = base_url() . '/form.php?session_id=' . urlencode($session['id']);
+    $qrSecret = generate_time_secret($session['id']);
+    $formUrl = base_url() . '/form.php?session_id=' . urlencode($session['id']) . '&secret=' . urlencode($qrSecret);
 }
 ?>
 <!DOCTYPE html>
@@ -169,8 +196,11 @@ if ($session) {
         <div class="subtitle">Waktu: <?php echo $session['start'] ? $session['start']->format('d/m/Y H:i') : '—'; ?> s/d <?php echo $session['end'] ? $session['end']->format('d/m/Y H:i') : '—'; ?></div>
         <div class="qr-wrap">
           <?php if ($formUrl): ?>
-            <img alt="QR Presensi" src="https://quickchart.io/qr?text=<?php echo urlencode($formUrl); ?>&size=<?php echo defined('QR_SIZE') ? (int)QR_SIZE : 500; ?>&margin=<?php echo defined('QR_MARGIN') ? (int)QR_MARGIN : 2; ?>&format=png" />
+            <img id="qr-image" alt="QR Presensi" src="https://quickchart.io/qr?text=<?php echo urlencode($formUrl); ?>&size=<?php echo defined('QR_SIZE') ? (int)QR_SIZE : 500; ?>&margin=<?php echo defined('QR_MARGIN') ? (int)QR_MARGIN : 2; ?>&format=png" />
           <?php endif; ?>
+        </div>
+        <div class="subtitle" style="text-align: center; margin-top: 16px;">
+          <span id="refresh-timer">QR akan refresh dalam <strong>60</strong> detik</span>
         </div>
         <!-- <div class="footer">
           Jika QR tidak terbaca, buka link manual: <a class="btn" href="<?php echo htmlspecialchars($formUrl); ?>">Buka Form Presensi</a>
@@ -181,5 +211,63 @@ if ($session) {
       <?php endif; ?>
     </div>
   </div>
+
+  <?php if ($session): ?>
+  <script>
+    let countdown = 60;
+    const sessionId = <?php echo json_encode($session['id']); ?>;
+    const baseUrl = <?php echo json_encode(base_url()); ?>;
+    const qrSize = <?php echo defined('QR_SIZE') ? (int)QR_SIZE : 500; ?>;
+    const qrMargin = <?php echo defined('QR_MARGIN') ? (int)QR_MARGIN : 2; ?>;
+
+    function updateTimer() {
+      const timerElement = document.getElementById('refresh-timer');
+      if (timerElement) {
+        timerElement.innerHTML = `QR akan refresh dalam <strong>${countdown}</strong> detik`;
+      }
+    }
+
+    function refreshQR() {
+      // Generate new URL with current timestamp to get fresh secret
+      const refreshUrl = window.location.href + (window.location.href.includes('?') ? '&' : '?') + 'refresh=' + Date.now();
+      
+      fetch(refreshUrl)
+        .then(response => response.text())
+        .then(html => {
+          // Extract new QR URL from response
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const newQrImg = doc.getElementById('qr-image');
+          
+          if (newQrImg) {
+            const qrImage = document.getElementById('qr-image');
+            if (qrImage) {
+              qrImage.src = newQrImg.src;
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Error refreshing QR:', error);
+          // Fallback: reload the page
+          window.location.reload();
+        });
+      
+      countdown = 60; // Reset countdown
+    }
+
+    // Start countdown timer
+    const timer = setInterval(() => {
+      countdown--;
+      updateTimer();
+      
+      if (countdown <= 0) {
+        refreshQR();
+      }
+    }, 1000);
+
+    // Initial timer display
+    updateTimer();
+  </script>
+  <?php endif; ?>
 </body>
 </html>

@@ -18,8 +18,8 @@ define('NIM_GSHEET_URL', 'https://docs.google.com/spreadsheets/d/.../export?form
 // n8n Webhook URL
 define('N8N_WEBHOOK_URL', 'https://your-n8n-instance.example.com/webhook/presensi-qr');
 
-// Secret key for hashing (fallback fingerprint)
-define('SECRET_KEY', 'change-this-secret');
+// Secret key for hashing (fallback fingerprint & QR security)
+define('SECRET_KEY', 'change-this-secret-for-production');
 
 // Default country code (used for WhatsApp number validation)
 define('COUNTRY_CODE', '62');
