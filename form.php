@@ -50,7 +50,7 @@ if (empty($sessionId) || empty($providedSecret) || !validate_time_secret($sessio
                     Anda tidak memiliki akses ke halaman ini.<br>
                     Silakan scan QR code yang valid untuk melakukan presensi.
                 </div>
-                <a href="<?php echo base_url(); ?>" class="btn">Kembali ke Halaman Utama</a>
+                <!-- <a href="<?php echo base_url(); ?>" class="btn">Kembali ke Halaman Utama</a> -->
             </div>
         </div>
     </body>
