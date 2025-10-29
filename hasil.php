@@ -103,15 +103,16 @@ $title = defined('APP_TITLE') ? APP_TITLE : 'Presensi Wasbang';
   <div class="container">
     <div class="card">
       <div class="title">Hasil Presensi</div>
-      <div class="subtitle">Masukkan NIM peserta untuk melihat data presensi.</div>
-
-      <form method="get" action="<?php echo h(($base ? $base.'/' : '').'hasil.php'); ?>">
-        <div class="field">
-          <label class="label" for="nim">NIM Peserta</label>
-          <input class="input" type="text" id="nim" name="nim" value="<?php echo h($nim); ?>" placeholder="Masukkan NIM" required />
-        </div>
-        <button class="btn" type="submit">Cari</button>
-      </form>
+-      <div class="subtitle">Masukkan NIM peserta untuk melihat data presensi.</div>
+-
+-      <form method="get" action="<?php echo h(($base ? $base.'/' : '').'hasil.php'); ?>">
+-        <div class="field">
+-          <label class="label" for="nim">NIM Peserta</label>
+-          <input class="input" type="text" id="nim" name="nim" value="<?php echo h($nim); ?>" placeholder="Masukkan NIM" required />
+-        </div>
+-        <button class="btn" type="submit">Cari</button>
+-      </form>
++      <div class="subtitle">NIM: <strong><?php echo h($nim ?: '—'); ?></strong></div>
 
       <?php if ($errorMsg): ?>
         <div class="error"><?php echo h($errorMsg); ?></div>

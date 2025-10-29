@@ -226,7 +226,7 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
         <input type="hidden" id="device_fingerprint" name="device_fingerprint" value="" />
 
         <button type="submit" class="btn" id="submitBtn" <?php echo $sessionActive ? '' : 'disabled'; ?>>Submit Presensi</button>
-        <a class="btn" id="cekPresensiBtn" style="margin-left:8px" href="#">Cek data presensi Anda</a>
+        <!-- <a class="btn" id="cekPresensiBtn" style="margin-left:8px; display:none" href="#">Cek data presensi</a> -->
       </form>
 
       <div id="feedback" class="info"></div>
@@ -436,6 +436,14 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
         feedback.className = 'warn';
         feedback.textContent = 'Data terkirim ke server. Menunggu respon...';
 
+        // Tampilkan tombol cek presensi dengan NIM dari form
+        const cekBtn = document.getElementById('cekPresensiBtn');
+        if (cekBtn) {
+          cekBtn.href = baseUrl + '/hasil.php?nim=' + encodeURIComponent(data.nim);
+          cekBtn.style.display = 'inline-block';
+          cekBtn.style.opacity = '1';
+          cekBtn.style.pointerEvents = 'auto';
+        }
         let finalResult = null;
         const key = [data.session_id, data.nim, data.device_fingerprint].filter(Boolean).join('|') || 'unknown';
         const maxAttempts = 12; // ~18 detik dengan interval 1.5s
