@@ -226,6 +226,7 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
         <input type="hidden" id="device_fingerprint" name="device_fingerprint" value="" />
 
         <button type="submit" class="btn" id="submitBtn" <?php echo $sessionActive ? '' : 'disabled'; ?>>Submit Presensi</button>
+        <a class="btn" id="cekPresensiBtn" style="margin-left:8px" href="#">Cek data presensi Anda</a>
       </form>
 
       <div id="feedback" class="info"></div>
@@ -237,6 +238,7 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
     const WEBHOOK_URL = 'webhookrespon.php';
     const NIM_GSHEET_URL = <?php echo json_encode(NIM_GSHEET_URL); ?>;
     const SESSION_ACTIVE = <?php echo $sessionActive ? 'true' : 'false'; ?>;
+    const baseUrl = <?php echo json_encode(base_url()); ?>;
 
     (function loadFP() {
       const s = document.createElement('script');
@@ -345,6 +347,18 @@ $placeholderCode = isset($codesArr[0]) ? $codesArr[0] : (defined('COUNTRY_CODE')
       e.target.value = v;
     });
 
+    // Tombol cek hasil presensi menuju hasil.php?nim=...
+    const cekBtn = document.getElementById('cekPresensiBtn');
+    function updateCekLink() {
+      const nimVal = (document.getElementById('nim')?.value || '').trim();
+      if (!cekBtn) return;
+      cekBtn.href = baseUrl + '/hasil.php' + (nimVal ? ('?nim=' + encodeURIComponent(nimVal)) : '');
+      const active = SESSION_ACTIVE && !!nimVal;
+      cekBtn.style.opacity = active ? '1' : '0.6';
+      cekBtn.style.pointerEvents = active ? 'auto' : 'none';
+    }
+    document.getElementById('nim').addEventListener('input', updateCekLink);
+    updateCekLink();
     // Fungsi simulateWebhook dihapus - gunakan balikan asli dari n8n
 
     async function fetchWebhookResult(nim, sessionId, fingerprint, key) {
