@@ -2,7 +2,7 @@
 require_once __DIR__ . '/config.php';
 
 // Validate time-based secret for QR security
-function validate_time_secret($session_id, $provided_secret, $time_window = 60, $tolerance = 1) {
+function validate_time_secret($session_id, $provided_secret, $time_window = 300, $tolerance = 1) {
     $current_time = time();
     $current_slot = floor($current_time / $time_window);
     $secret_key = defined('SECRET_KEY') ? SECRET_KEY : 'default_secret_key_change_this';
