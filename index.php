@@ -4,7 +4,7 @@ require_once __DIR__ . '/config.php';
 function norm_lower($s) { return function_exists('mb_strtolower') ? mb_strtolower($s) : strtolower($s); }
 
 // Generate time-based secret for QR security
-function generate_time_secret($session_id, $time_window = 60) {
+function generate_time_secret($session_id, $time_window = 300) {
     $current_time = time();
     $time_slot = floor($current_time / $time_window);
     $secret_key = defined('SECRET_KEY') ? SECRET_KEY : 'default_secret_key_change_this';
@@ -12,7 +12,7 @@ function generate_time_secret($session_id, $time_window = 60) {
 }
 
 // Validate time-based secret
-function validate_time_secret($session_id, $provided_secret, $time_window = 60, $tolerance = 1) {
+function validate_time_secret($session_id, $provided_secret, $time_window = 300, $tolerance = 1) {
     $current_time = time();
     $current_slot = floor($current_time / $time_window);
     $secret_key = defined('SECRET_KEY') ? SECRET_KEY : 'default_secret_key_change_this';
@@ -224,7 +224,7 @@ if ($session) {
         </div>
         <?php if ($formUrl): ?>
         <div class="subtitle" style="text-align: center; margin-top: 16px;">
-          <span id="refresh-timer">QR akan refresh dalam <strong>60</strong> detik</span>
+          <span id="refresh-timer">QR akan refresh dalam <strong>300</strong> detik</span>
         </div>
         <?php endif; ?>
         <!-- <div class="footer">
@@ -239,7 +239,7 @@ if ($session) {
 
   <?php if ($formUrl): ?>
   <script>
-    let countdown = 60;
+    let countdown = 300;
     const sessionId = <?php echo json_encode($session['id']); ?>;
     const baseUrl = <?php echo json_encode(base_url()); ?>;
     const qrSize = <?php echo defined('QR_SIZE') ? (int)QR_SIZE : 500; ?>;
@@ -277,7 +277,7 @@ if ($session) {
           window.location.reload();
         });
       
-      countdown = 60; // Reset countdown
+      countdown = 300; // Reset countdown
     }
 
     // Start countdown timer
